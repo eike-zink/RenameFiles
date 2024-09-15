@@ -1,2 +1,5 @@
-# RenameFiles
-Build a Bulk File Rename Tool With Python and PyQt
+# Rename-Files with Python 
+
+Beispiel für ein Programm zur Umbenennung von Dateien in Python (mit PySide6).
+
+Grundlage: https://realpython.com/bulk-file-rename-tool-python/
