@@ -1,12 +1,14 @@
 from PySide6.QtWidgets import QWidget, QFileDialog
+from PySide6.QtCore import QThread
 from collections import deque
 from pathlib import Path
 
 from .ui.window import Ui_Form
+from .rename import Rename
 
 FILTERS = ";;".join(
     (
-        "PNG FIles (*.png)",
+        "PNG Files (*.png)",
         "JPEG Files (*.jpeg)",
         "JPG Files (*.jpg)",
         "GIF Files (*.gif)",
@@ -28,13 +30,13 @@ class Window(QWidget, Ui_Form):
 
     def _connectSignalsSlots(self):
         self.loadFilesButton.clicked.connect(self._loadFiles)
+        self.renameFilesButton.clicked.connect(self.renameFiles)
 
     def _loadFiles(self):
+        initDir = str(Path.home())
         self.dstFileList.clear()
         if self.dirEdit.text():
-            intiDir = self.dirEdit.text()
-        else:
-            initDir = str(Path.home())
+            initDir = self.dirEdit.text()
         files, filter = QFileDialog.getOpenFileNames(
             self, "Choose Files to Rename", initDir, filter=FILTERS
         )
@@ -48,3 +50,29 @@ class Window(QWidget, Ui_Form):
                 self.srcFileList.addItem(file)
             self._fileCount = len(self._files)
 
+    def renameFiles(self):
+        self._runRenameThread()
+
+    def _runRenameThread(self):
+        prefix = self.prefixEdit.text()
+        self._thread = QThread()
+        self._renamer = Rename(
+            files=tuple(self._files),
+            prefix=prefix
+        )
+        self._renamer.moveToThread(self._thread)
+        # Rename the files
+        self._thread.started.connect(self._renamer.run)
+        # Update state
+        self._renamer.signals.renamedFile.connect(self._updateStateWhenFileRenamed)
+        # Clean up
+        self._renamer.signals.finished.connect(self._thread.quit)
+        self._renamer.signals.finished.connect(self._renamer.deleteLater)
+        self._thread.finished.connect(self._thread.deleteLater)
+        # Run the thread
+        self._thread.start()
+
+    def _updateStateWhenFileRenamed(self, newFile):
+        self._files.popleft()
+        self.srcFileList.takeItem(0)
+        self.dstFileList.addItem(str(newFile))
